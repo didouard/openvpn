@@ -35,6 +35,9 @@
 #define IP_MCAST_SUBNET_MASK  ((in_addr_t)240<<24)
 #define IP_MCAST_NETWORK      ((in_addr_t)224<<24)
 
+#define MAC_MCAST_ADDRS        0x01005e00
+#define MAC_MCAST_MASK         0xFFFFFE00
+
 /* Return status values for mroute_extract_addr_from_packet */
 
 #define MROUTE_EXTRACT_SUCCEEDED (1<<0)

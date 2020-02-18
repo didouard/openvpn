@@ -122,6 +122,7 @@
 #define D_WIN32_IO_LOW       LOGLEV(7, 70, M_DEBUG)  /* low freq win32 I/O debugging info */
 #define D_MTU_DEBUG          LOGLEV(7, 70, M_DEBUG)  /* show MTU debugging info */
 #define D_MULTI_DEBUG        LOGLEV(7, 70, M_DEBUG)  /* show medium-freq multi debugging info */
+#define D_MCAST_DEBUG        LOGLEV(3, 70, M_DEBUG)  /* show medium-freq multi debugging info */
 #define D_MSS                LOGLEV(7, 70, M_DEBUG)  /* show MSS adjustments */
 #define D_COMP_LOW           LOGLEV(7, 70, M_DEBUG)  /* show adaptive compression state changes */
 #define D_CONNECTION_LIST    LOGLEV(7, 70, M_DEBUG)  /* show <connection> list info */

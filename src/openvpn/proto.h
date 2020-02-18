@@ -162,6 +162,40 @@ struct openvpn_icmp6hdr {
     uint8_t icmp6_dataun[4];
 };
 
+static inline uint8_t *
+openvpn_ip_payload (const struct openvpn_iphdr *h)
+{
+  return (uint8_t*)(((uint8_t*)h) + OPENVPN_IPH_GET_LEN(h->version_len));
+}
+
+#define OPENVPN_IGMP_QUERY        0x11
+#define OPENVPN_IGMP_REPORT_V2    0x16
+#define OPENVPN_IGMP_LEAVE_V2     0x17
+#define OPENVPN_IGMP_REPORT_V3    0x22
+struct openvpn_igmpv3hdr {
+  uint8_t    type;
+  uint8_t    max_response;
+  uint16_t   chk_sum;
+  union
+  {
+    uint32_t   igmpv2_group_addr;
+    struct
+    {
+      uint16_t igmpv3_reserved;
+      uint16_t igmpv3_num_records;
+    };
+  } data;
+};
+
+struct openvpn_igmpv3_record_hdr {
+#define OPENVPN_IGMPV3_FILTER_CHANGE_TO_INCLUDE 3
+#define OPENVPN_IGMPV3_FILTER_CHANGE_TO_EXCLUDE 4
+  uint8_t type;
+  uint8_t aux_len;
+  uint16_t num_sources;
+  uint32_t group_address;
+};
+
 /*
  * UDP header
  */

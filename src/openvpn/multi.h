@@ -91,6 +91,7 @@ struct multi_instance {
     ifconfig_pool_handle vaddr_handle;
     char msg_prefix[MULTI_PREFIX_MAX_LENGTH];
 
+    struct mcast_timeout_list *mcast_timeouts;
     /* queued outgoing data in Server/TCP mode */
     unsigned int tcp_rwflags;
     struct mbuf_set *tcp_link_out_deferred;
@@ -157,6 +158,7 @@ struct multi_context {
     struct ifconfig_pool *ifconfig_pool;
     struct frequency_limit *new_connection_limiter;
     struct mroute_helper *route_helper;
+    struct hash *mcast_group_map;
     struct multi_reap *reaper;
     struct mroute_addr local;
     bool enable_c2c;

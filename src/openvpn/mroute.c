@@ -57,8 +57,7 @@ is_mac_mcast_addr(const uint8_t *mac)
 static inline bool
 is_mac_mcast_maddr(const struct mroute_addr *addr)
 {
-    return (addr->type & MR_ADDR_MASK) == MR_ADDR_ETHER
-           && is_mac_mcast_addr(addr->ether.addr);
+  return ((*(uint32_t*)mac) & htonl(MAC_MCAST_MASK)) == htonl(MAC_MCAST_ADDRS);
 }
 
 /*
@@ -169,9 +168,11 @@ mroute_extract_addr_arp(struct mroute_addr *src,
             mroute_get_in_addr_t(dest, arp->ip_dest, MR_ARP);
 
             /* multicast packet? */
-            if (mroute_is_mcast(arp->ip_dest))
+            if (mroute_is_bcast(arp->ip_dest))
             {
                 ret |= MROUTE_EXTRACT_MCAST;
+		if (is_mac_mcast_addr (eth->dest))
+		  ret |= MROUTE_EXTRACT_MCAST;
             }
 
             ret |= MROUTE_EXTRACT_SUCCEEDED;

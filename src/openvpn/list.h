@@ -162,6 +162,23 @@ hash_lookup(struct hash *hash, const void *key)
     return ret;
 }
 
+static inline void **
+hash_lookup_ptr (struct hash *hash, const void *key)
+{
+  void **ret = NULL;
+  struct hash_element *he;
+  uint32_t hv = hash_value (hash, key);
+  struct hash_bucket *bucket = &hash->buckets[hv & hash->mask];
+
+  mutex_lock (&bucket->mutex);
+  he = hash_lookup_fast (hash, bucket, key, hv);
+  if (he)
+    ret = &he->value;
+  mutex_unlock (&bucket->mutex);
+
+  return ret;
+}
+
 /* NOTE: assumes that key is not a duplicate */
 static inline void
 hash_add_fast(struct hash *hash,

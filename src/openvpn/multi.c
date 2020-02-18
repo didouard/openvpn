@@ -379,6 +379,13 @@ multi_init(struct multi_context *m, struct context *t, bool tcp_mode, int thread
      */
     m->mbuf = mbuf_init(t->options.n_bcast_buf);
 
+
+    /*
+     * Initialize the mcast group_maps.
+     */
+    mcast_init(m);
+    
+    
     /*
      * Different status file format options are available
      */
@@ -663,6 +670,8 @@ multi_close_instance(struct multi_context *m,
 
         schedule_remove_entry(m->schedule, (struct schedule_entry *) mi);
 
+	mcast_disconnect(m, mi);
+	
         ifconfig_pool_release(m->ifconfig_pool, mi->vaddr_handle, false);
 
         if (mi->did_iroutes)
@@ -779,6 +788,7 @@ multi_create_instance(struct multi_context *m, const struct mroute_addr *real)
     multi_instance_inc_refcount(mi);
     mi->vaddr_handle = -1;
     mi->created = now;
+    mi->mcast_timeouts = NULL;
     mroute_addr_init(&mi->real);
 
     if (real)
@@ -2407,7 +2417,8 @@ multi_process_post(struct multi_context *m, struct multi_instance *mi, const uns
                (int64_t)mi->context.c2.timeval.tv_sec,
                (long)mi->context.c2.timeval.tv_usec);
 #endif
-    }
+    } 
+
 
     if ((flags & MPP_RECORD_TOUCH) && m->mpp_touched)
     {
@@ -2677,17 +2688,22 @@ multi_process_incoming_link(struct multi_context *m, struct multi_instance *inst
 
                 if (mroute_flags & MROUTE_EXTRACT_SUCCEEDED)
                 {
+		  const struct openvpn_igmpv3hdr * igmphdr;
+		  
+		  if (igmphdr = (const struct openvpn_igmpv3hdr *)mcast_pkt_is_igmp(&c->c2.to_tun))
+		    mcast_igmp_snoop(m, m->pending, igmphdr, BEND(&c->c2.to_tun), &src);
+		  
+		  /*                  if (mroute_flags & MROUTE_EXTRACT_MCAST)
+				      mcast_send(m, &c->c2.to_tun, m->pending);
+				      else*/
                     if (multi_learn_addr(m, m->pending, &src, 0) == m->pending)
                     {
                         /* check for broadcast */
                         if (m->enable_c2c)
                         {
-                            if (mroute_flags & (MROUTE_EXTRACT_BCAST|MROUTE_EXTRACT_MCAST))
-                            {
-                                multi_bcast(m, &c->c2.to_tun, m->pending, NULL,
-                                            vid);
-                            }
-                            else /* try client-to-client routing */
+			  if ((mroute_flags & MROUTE_EXTRACT_BCAST) && !(mroute_flags & MROUTE_EXTRACT_MCAST))
+			    multi_bcast (m, &c->c2.to_tun, m->pending);
+			  else /* try client-to-client routing */
                             {
                                 mi = multi_get_instance_by_virtual_addr(m, &dest, false);
 
@@ -2819,9 +2835,23 @@ multi_process_incoming_tun(struct multi_context *m, const unsigned int mpp_flags
             struct context *c;
 
             /* broadcast or multicast dest addr? */
-            if (mroute_flags & (MROUTE_EXTRACT_BCAST|MROUTE_EXTRACT_MCAST))
-            {
-                /* for now, treat multicast as broadcast */
+	    if (mroute_flags & MROUTE_EXTRACT_MCAST)
+	      {
+		const struct openvpn_igmpv3hdr * igmphdr;
+		
+		//            Don't intercept IGMP flowing this direction for the moment. Will probably have to do it later to properly implement IGMP-query-snooping
+		//            For now, treat IGMP queries flowing downstream as broadcasts
+		if (igmphdr = (const struct openvpn_igmpv3hdr *)mcast_pkt_is_igmp(&m->top.c2.buf))
+		  {
+		    if (igmphdr->type == OPENVPN_IGMP_QUERY)
+		      multi_bcast(m, &m->top.c2.buf, NULL);
+		  }
+		else
+		  mcast_send(m, &m->top.c2.buf, NULL);
+	      }
+	    else if (mroute_flags & MROUTE_EXTRACT_BCAST)
+	      {
+	      /* for now, treat multicast as broadcast */
 #ifdef ENABLE_PF
                 multi_bcast(m, &m->top.c2.buf, NULL, e2, vid);
 #else
@@ -2935,6 +2965,7 @@ multi_process_timeout(struct multi_context *m, const unsigned int mpp_flags)
         else
         {
             set_prefix(m->earliest_wakeup);
+	    mcast_clean_old_groups(m, m->earliest_wakeup, false);
             ret = multi_process_post(m, m->earliest_wakeup, mpp_flags);
             clear_prefix();
         }
