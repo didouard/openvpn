@@ -170,11 +170,11 @@ hash_lookup_ptr (struct hash *hash, const void *key)
   uint32_t hv = hash_value (hash, key);
   struct hash_bucket *bucket = &hash->buckets[hv & hash->mask];
 
-  mutex_lock (&bucket->mutex);
+  //mutex_lock (&bucket->mutex);
   he = hash_lookup_fast (hash, bucket, key, hv);
   if (he)
     ret = &he->value;
-  mutex_unlock (&bucket->mutex);
+  //mutex_unlock (&bucket->mutex);
 
   return ret;
 }

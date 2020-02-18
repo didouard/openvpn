@@ -49,13 +49,20 @@ mroute_addr_init(struct mroute_addr *addr)
  */
 
 static inline bool
-is_mac_mcast_addr(const uint8_t *mac)
+is_mac_bcast_addr(const uint8_t *mac)
 {
     return (bool) (mac[0] & 1);
 }
 
 static inline bool
-is_mac_mcast_maddr(const struct mroute_addr *addr)
+is_mac_bcast_maddr(const struct mroute_addr *addr)
+{
+  return (addr->type & MR_ADDR_MASK) == MR_ADDR_ETHER && is_mac_bcast_addr (addr->raw_addr);
+}
+
+
+static inline bool
+is_mac_mcast_addr (const uint8_t *mac)
 {
   return ((*(uint32_t*)mac) & htonl(MAC_MCAST_MASK)) == htonl(MAC_MCAST_ADDRS);
 }
@@ -99,7 +106,7 @@ mroute_learnable_address(const struct mroute_addr *addr, struct gc_arena *gc)
         return false;
     }
 
-    if (is_mac_mcast_maddr(addr))
+    if (is_mac_bcast_maddr(addr))
     {
         msg(D_MULTI_LOW, "Can't learn %s: network is a multicast address",
             mroute_addr_print(addr, gc));
@@ -168,11 +175,9 @@ mroute_extract_addr_arp(struct mroute_addr *src,
             mroute_get_in_addr_t(dest, arp->ip_dest, MR_ARP);
 
             /* multicast packet? */
-            if (mroute_is_bcast(arp->ip_dest))
+            if (mroute_is_mcast(arp->ip_dest))
             {
                 ret |= MROUTE_EXTRACT_MCAST;
-		if (is_mac_mcast_addr (eth->dest))
-		  ret |= MROUTE_EXTRACT_MCAST;
             }
 
             ret |= MROUTE_EXTRACT_SUCCEEDED;
@@ -201,17 +206,17 @@ mroute_extract_addr_ip(struct mroute_addr *src, struct mroute_addr *dest,
                     mroute_get_in_addr_t(dest, ip->daddr, 0);
 
                     /* multicast packet? */
-                    if (mroute_is_mcast(ip->daddr))
-                    {
-                        ret |= MROUTE_EXTRACT_MCAST;
-                    }
-
+		    if (mroute_is_mcast (ip->daddr))
+		      {
+			ret |= MROUTE_EXTRACT_MCAST;
+		      }
+		    
                     /* IGMP message? */
-                    if (ip->protocol == OPENVPN_IPPROTO_IGMP)
-                    {
+		    if (ip->protocol == OPENVPN_IPPROTO_IGMP)
+		      {
                         ret |= MROUTE_EXTRACT_IGMP;
-                    }
-
+		      }
+		    
                     ret |= MROUTE_EXTRACT_SUCCEEDED;
                 }
                 break;

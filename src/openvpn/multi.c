@@ -49,7 +49,7 @@
 #include <inttypes.h>
 
 #include "memdbg.h"
-
+#include "mcast.h"
 
 #include "crypto_backend.h"
 
@@ -2690,7 +2690,7 @@ multi_process_incoming_link(struct multi_context *m, struct multi_instance *inst
                 {
 		  const struct openvpn_igmpv3hdr * igmphdr;
 		  
-		  if (igmphdr = (const struct openvpn_igmpv3hdr *)mcast_pkt_is_igmp(&c->c2.to_tun))
+		  if ((igmphdr = (const struct openvpn_igmpv3hdr *)mcast_pkt_is_igmp(&c->c2.to_tun)))
 		    mcast_igmp_snoop(m, m->pending, igmphdr, BEND(&c->c2.to_tun), &src);
 		  
 		  /*                  if (mroute_flags & MROUTE_EXTRACT_MCAST)
@@ -2702,7 +2702,7 @@ multi_process_incoming_link(struct multi_context *m, struct multi_instance *inst
                         if (m->enable_c2c)
                         {
 			  if ((mroute_flags & MROUTE_EXTRACT_BCAST) && !(mroute_flags & MROUTE_EXTRACT_MCAST))
-			    multi_bcast (m, &c->c2.to_tun, m->pending);
+			    multi_bcast (m, &c->c2.to_tun, m->pending, NULL, vid);
 			  else /* try client-to-client routing */
                             {
                                 mi = multi_get_instance_by_virtual_addr(m, &dest, false);
@@ -2841,10 +2841,14 @@ multi_process_incoming_tun(struct multi_context *m, const unsigned int mpp_flags
 		
 		//            Don't intercept IGMP flowing this direction for the moment. Will probably have to do it later to properly implement IGMP-query-snooping
 		//            For now, treat IGMP queries flowing downstream as broadcasts
-		if (igmphdr = (const struct openvpn_igmpv3hdr *)mcast_pkt_is_igmp(&m->top.c2.buf))
+		if ((igmphdr = (const struct openvpn_igmpv3hdr *)mcast_pkt_is_igmp(&m->top.c2.buf)))
 		  {
 		    if (igmphdr->type == OPENVPN_IGMP_QUERY)
-		      multi_bcast(m, &m->top.c2.buf, NULL);
+#ifdef ENABLE_PF
+                multi_bcast(m, &m->top.c2.buf, NULL, e2, vid);
+#else
+                multi_bcast(m, &m->top.c2.buf, NULL, NULL, vid);
+#endif
 		  }
 		else
 		  mcast_send(m, &m->top.c2.buf, NULL);

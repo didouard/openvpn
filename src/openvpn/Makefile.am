@@ -71,6 +71,7 @@ openvpn_SOURCES = \
 	manage.c manage.h \
 	mbuf.c mbuf.h \
 	memdbg.h \
+	mcast.c mcast.h \
 	misc.c misc.h \
 	platform.c platform.h \
 	console.c console.h console_builtin.c console_systemd.c \

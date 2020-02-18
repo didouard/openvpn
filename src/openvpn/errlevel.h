@@ -84,6 +84,7 @@
 #define D_IFCONFIG_POOL      LOGLEV(3, 35, 0)        /* show ifconfig pool info */
 #define D_AUTH               LOGLEV(3, 37, 0)        /* show user/pass auth info */
 #define D_MULTI_LOW          LOGLEV(3, 38, 0)        /* show point-to-multipoint low-freq debug info */
+#define D_MCAST_LOW          LOGLEV(3, 38, 0)        /* show point-to-multipoint low-freq debug info */
 #define D_PLUGIN             LOGLEV(3, 39, 0)        /* show plugin calls */
 #define D_MANAGEMENT         LOGLEV(3, 40, 0)        /* show --management info */
 #define D_SCHED_EXIT         LOGLEV(3, 41, 0)        /* show arming of scheduled exit */

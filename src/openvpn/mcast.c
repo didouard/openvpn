@@ -64,7 +64,7 @@ bool mcast_addr_compare(const void *key1, const void *key2)
 /** initialization-stuff */
 void mcast_init(struct multi_context *m)
 {
-  m->mcast_group_map = hash_init(4096, mcast_addr_hash, mcast_addr_compare);
+  m->mcast_group_map = hash_init(4096, get_random(), mcast_addr_hash, mcast_addr_compare);
   msg (D_MCAST_LOW, "MCAST: initialized multicast maps");
 }
 
@@ -117,8 +117,6 @@ void mcast__update_time_for_recipient(struct multi_instance * mi, const uint32_t
   struct mcast_timeout_list * tmp_list;
   struct mcast_timeout_list * new_list_item = mcast__create_timeout_list_item(group, rcpt);
 
-  mutex_lock(mi->mutex);
-
   current_list = &mi->mcast_timeouts; // Start with a pointer to the pointer to the first item.
 
   while ((*current_list) && tv_ge(&new_list_item->timeout, &(*current_list)->timeout))  // Continue while there exist a next item, and the next item is scheduled for removal later than the current. */
@@ -136,15 +134,12 @@ void mcast__update_time_for_recipient(struct multi_instance * mi, const uint32_t
   new_list_item->next = (*current_list);
   *current_list = new_list_item;
 
-  mutex_unlock(mi->mutex);
 }
 
 void mcast__clean_times_for_recipient(struct multi_instance * mi, const uint32_t group, struct mroute_addr * rcpt)
 {
   struct mcast_timeout_list **current_list;
   struct mcast_timeout_list * tmp_list;
-
-  mutex_lock(mi->mutex);
 
   current_list = &mi->mcast_timeouts;  // Start with a pointer to the pointer to the first item.
 
@@ -159,15 +154,12 @@ void mcast__clean_times_for_recipient(struct multi_instance * mi, const uint32_t
     else
       current_list = &(*current_list)->next; // Bring up the next item in list
   }
-  mutex_unlock(mi->mutex);
 }
 
 void mcast_add_rcpt(struct multi_context *m, const uint32_t group, const struct mroute_addr *rcpt, struct multi_instance * mi)
 {
   struct gc_arena gc = gc_new ();
   struct mcast_recipient_list **list_item_ptr;
-
-  mutex_lock(m->mutex);
 
   list_item_ptr = (struct mcast_recipient_list **)hash_lookup_ptr(m->mcast_group_map, &group);
 
@@ -200,7 +192,6 @@ void mcast_add_rcpt(struct multi_context *m, const uint32_t group, const struct 
   mcast__update_time_for_recipient(mi, group, &(*list_item_ptr)->rcpt);
   mcast_print_group_list(m, &gc, group);
 
-  mutex_unlock(m->mutex);
   gc_free(&gc);
 }
 
@@ -210,8 +201,6 @@ void mcast_remove_rcpt(struct multi_context *m, const uint32_t group, const stru
   struct mcast_recipient_list ** list_item_ptr;
   struct mcast_recipient_list * next_item;
   struct mroute_addr rcpt_copy = *rcpt;
-
-  mutex_lock(m->mutex);
 
   list_item_ptr = (struct mcast_recipient_list **)hash_lookup_ptr(m->mcast_group_map, &group);
 
@@ -232,8 +221,6 @@ void mcast_remove_rcpt(struct multi_context *m, const uint32_t group, const stru
 
   mcast_print_group_list(m, &gc, group);
 
-  mutex_unlock(m->mutex);
-
   gc_free(&gc);
 }
 
@@ -245,8 +232,6 @@ void mcast_clean_old_groups(struct multi_context *m, struct multi_instance *mi, 
   struct gc_arena gc = gc_new();
 
   update_time();
-
-  mutex_lock(mi->mutex);
 
   current_list = &mi->mcast_timeouts; // Start with a pointer to the pointer to the first item.
 
@@ -262,7 +247,6 @@ void mcast_clean_old_groups(struct multi_context *m, struct multi_instance *mi, 
     *current_list = tmp_list;
   }
   mcast_print_timeout_list(mi, &gc);
-  mutex_unlock(mi->mutex);
   gc_free(&gc);
 }
 
@@ -321,7 +305,7 @@ const struct openvpn_iphdr * mcast_pkt_is_ip(const struct buffer *buf)
 const struct openvpn_igmpv3hdr* mcast_pkt_is_igmp(const struct buffer *buf)
 {
   const struct openvpn_iphdr *ip;
-  if (ip = mcast_pkt_is_ip(buf))
+  if ((ip = mcast_pkt_is_ip(buf)))
   {
     if ((ip->protocol == OPENVPN_IPPROTO_IGMP) && (BLEN(buf) >= (sizeof(struct openvpn_ethhdr) + ntohs(ip->tot_len))))
       return (const struct openvpn_igmpv3hdr *)openvpn_ip_payload(ip);
@@ -353,13 +337,11 @@ void mcast_send(struct multi_context *m,
   struct mcast_recipient_list * rcpt_list;
   struct gc_arena gc = gc_new ();
 
-  if (ip = mcast_pkt_is_ip(buf))
+  if ((ip = mcast_pkt_is_ip(buf)))
     {
       group_address = ntohl(ip->daddr);
 
       msg (D_MULTI_DEBUG, "MCAST: sending packet to group %s", print_in_addr_t (group_address, IA_EMPTY_IF_UNDEF, &gc));
-
-      mutex_lock(m->mutex);
 
       rcpt_list = (struct mcast_recipient_list *)hash_lookup(m->mcast_group_map, &group_address);
       if (rcpt_list)
@@ -369,7 +351,7 @@ void mcast_send(struct multi_context *m,
         printf ("MCAST len=%d\n", BLEN (buf));
 #endif
         mb = mbuf_alloc_buf (buf);
-        output_instances = hash_init(16, multi_instance_hash, multi_instance_compare);
+        output_instances = hash_init(16, get_random(), multi_instance_hash, multi_instance_compare);
   
   
         while (rcpt_list)
@@ -384,7 +366,6 @@ void mcast_send(struct multi_context *m,
         mbuf_free_buf (mb);
         perf_pop ();
   
-        mutex_unlock(m->mutex);
       }
     }
 
